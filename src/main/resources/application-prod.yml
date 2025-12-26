@@ -53,6 +53,8 @@ spring:
         jwtSecret: ${JWT_SECRET:bolNVrdkj0gZVwkFR2aP0ooqkK7jziTfZ72x6loE8bw=}
         jwtExpirationMs: 10000000
     
+    profiles:
+        active: ${RAILWAY_ENVIRONMENT:prod}
 
 aws:
     s3:
