@@ -10,7 +10,7 @@ firebase:
     project:
         id: ${FIREBASE_PROJECT_ID}
     credentials:
-        path: ${FIREBASE_CREDENTIALS_PATH:classpath:chat-app-service-acc-key.json}
+        path: ${classpath:chat-app-service-acc-key.json}
 
 spring:
     application:
