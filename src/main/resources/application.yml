@@ -15,8 +15,6 @@ firebase:
 spring:
     application:
         name: chat-app
-    profiles:
-        active: ${RAILWAY_ENVIRONMENT_NAME:prod}
     cloud:
         gcp:
             firestore:
