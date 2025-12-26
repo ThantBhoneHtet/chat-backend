@@ -30,6 +30,7 @@ public class FirebaseConfig {
     private InputStream getCredentialsStream() throws IOException {
         // 1. Try to get JSON from FIREBASE_CREDENTIALS_JSON environment variable
         String jsonCredentials = System.getenv("FIREBASE_CREDENTIALS_JSON");
+        System.out.println(jsonCredentials);
         
         if (jsonCredentials != null && !jsonCredentials.trim().isEmpty()) {
             System.out.println("✓ Loading Firebase credentials from FIREBASE_CREDENTIALS_JSON");
