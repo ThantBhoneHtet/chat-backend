@@ -1,0 +1,62 @@
+server:
+    port: 8080
+logging:
+    level:
+        org:
+            springframework:
+                security: DEBUG
+    
+firebase:
+    project:
+        id: [Your-Firebase-Project-ID]
+    credentials:
+        path: classpath:chat-app-service-acc-key.json
+
+spring:
+    application:
+        name: chat-app
+    cloud:
+        gcp:
+            firestore:
+                enabled: true
+                project-id: ${firebase.project.id}
+                credentials:
+                    location: ${firebase.credentials.path}
+            project-id: ${firestore.project.id}
+            credentials:
+                location: ${firebase.credentials.path}
+            secretmanager:
+                enabled: false
+    autoconfigure:
+        exclude:
+            - com.google.cloud.spring.autoconfigure.secretmanager.GcpSecretManagerAutoConfiguration
+    security:
+        # default user and pw
+        user:
+            name: user
+            password: 1234
+        oauth2:
+            client:
+                registration:
+                    github:
+                        client-id: "Your-GitHub-Client-ID"
+                        client-secret: "Your-GitHub-Client-Secret"
+                        # scope of which data to be retrieved
+                        scope:
+                            - read:user
+                            - user:email
+                        redirect-uri: "http://localhost:8080/login/oauth2/code/github"
+                    google:
+                        client-id: "Your-Google-Client-ID"
+                        client-secret: "Your-Google-Client-Secret"
+    app:
+        jwtSecret: YourJWTSecretKey
+        jwtExpirationMs: 10000000
+    
+
+aws:
+    s3:
+        bucket-name: your-s3-bucket-name
+        region: us-east-1
+        access-key: YourAWSAccessKey
+        secret-key: YourAWSSecretKey

@@ -1,0 +1,60 @@
+HELP.md
+**.txt
+target/
+.mvn/wrapper/maven-wrapper.jar
+!**/src/main/**/target/
+!**/src/test/**/target/
+
+### STS ###
+.apt_generated
+.classpath
+.factorypath
+.project
+.settings
+.springBeans
+.sts4-cache
+
+### IntelliJ IDEA ###
+.idea
+*.iws
+*.iml
+*.ipr
+
+### NetBeans ###
+/nbproject/private/
+/nbbuild/
+/dist/
+/nbdist/
+/.nb-gradle/
+build/
+!**/src/main/**/build/
+!**/src/test/**/build/
+
+### VS Code ###
+.vscode/
+
+### Secrets / Credentials (project-specific) ###
+# Firebase service account
+/src/main/resources/chat-app-service-acc-key.json
+/src/main/resources/application.properties
+!/src/main/resources/application.yml
+!/src/main/resources/application-prod.yml
+# Environment files
+.env
+.env.*
+ENV_info.txt
+# Java keystores, private keys, certs
+*.jks
+*.keystore
+*.p12
+*.pem
+*.key
+# AWS / cloud keys and credential files
+aws-credentials.json
+credentials.json
+# Git-ignored secrets directory
+/secrets/
+
+# OS / IDE local files
+.DS_Store
+Thumbs.db
