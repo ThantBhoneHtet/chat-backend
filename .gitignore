@@ -37,7 +37,7 @@ build/
 # Firebase service account
 /src/main/resources/chat-app-service-acc-key.json
 /src/main/resources/application.properties
-!/src/main/resources/application.yml
+/src/main/resources/application.yml
 !/src/main/resources/application-prod.yml
 # Environment files
 .env
