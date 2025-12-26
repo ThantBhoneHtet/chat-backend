@@ -50,11 +50,11 @@ spring:
                         client-id: ${GOOGLE_CLIENT_ID}
                         client-secret: ${GOOGLE_CLIENT_SECRET}
     app:
-        jwtSecret: ${JWT_SECRET:bolNVrdkj0gZVwkFR2aP0ooqkK7jziTfZ72x6loE8bw=}
+        jwtSecret: ${JWT_SECRET}
         jwtExpirationMs: 10000000
     
     profiles:
-        active: ${RAILWAY_ENVIRONMENT:prod}
+        active: ${RAILWAY_ENVIRONMENT_NAME:prod}
 
 aws:
     s3:
