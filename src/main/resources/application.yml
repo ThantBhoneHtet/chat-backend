@@ -21,10 +21,10 @@ spring:
                 enabled: true
                 project-id: ${firebase.project.id}
                 credentials:
-                    location: ${firebase.credentials.path}
+                    location: file:${firebase.credentials.path}
             project-id: ${firestore.project.id}
             credentials:
-                location: ${firebase.credentials.path}
+                location: file:${firebase.credentials.path}
             secretmanager:
                 enabled: false
     autoconfigure:
