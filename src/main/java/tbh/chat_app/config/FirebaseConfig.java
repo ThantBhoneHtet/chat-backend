@@ -6,18 +6,12 @@ import com.google.cloud.firestore.FirestoreOptions;
 import com.google.cloud.spring.data.firestore.repository.config.EnableReactiveFirestoreRepositories;
 import com.google.firebase.FirebaseApp;
 import com.google.firebase.FirebaseOptions;
-
-import jakarta.annotation.PostConstruct;
-
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
-
 import java.io.*;
 import java.nio.charset.StandardCharsets;
-import java.nio.file.Files;
-import java.nio.file.Path;
-import java.nio.file.Paths;
+
 
 @Configuration
 @EnableReactiveFirestoreRepositories(basePackages = "tbh.chat_app.repository")
@@ -28,18 +22,6 @@ public class FirebaseConfig {
 
     @Value("${firebase.project.id:chat-app-817da}")
     private String projectId;
-
-    @PostConstruct
-    public void createFirebaseConfigIfNeeded() throws IOException {
-        String json = System.getenv("FIREBASE_CREDENTIALS_JSON");
-        if (json != null && !json.trim().isEmpty()) {
-            Path configDir = Paths.get("/app/config");
-            Files.createDirectories(configDir);
-            Path configFile = configDir.resolve("firebase-key.json");
-            Files.writeString(configFile, json.replace("\\n", "\n"));
-            System.out.println("Created Firebase config at: " + configFile);
-        }
-    }
 
     private InputStream getCredentialsStream() throws IOException {
         System.out.println("=== Loading Firebase Credentials ===");
