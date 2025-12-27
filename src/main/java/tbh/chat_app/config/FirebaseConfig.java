@@ -31,10 +31,10 @@ public class FirebaseConfig {
     private InputStream getCredentialsStream() throws IOException {
 
         // 1. Railway / Production: Base64 credentials
-        String base64Credentials = System.getenv("FIREBASE_CREDENTIALS_BASE64");
+        String base64Credentials = System.getenv("FIREBASE_CREDENTIALS_JSON");
 
         if (base64Credentials != null && !base64Credentials.isBlank()) {
-            System.out.println("✓ Loading Firebase credentials from FIREBASE_CREDENTIALS_BASE64");
+            System.out.println("✓ Loading Firebase credentials from FIREBASE_CREDENTIALS_JSON");
             byte[] decoded = Base64.getDecoder().decode(base64Credentials);
             return new ByteArrayInputStream(decoded);
         }
