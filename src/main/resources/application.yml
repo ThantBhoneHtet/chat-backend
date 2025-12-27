@@ -45,7 +45,7 @@ spring:
                         scope:
                             - read:user
                             - user:email
-                        redirect-uri: "http://localhost:8080/login/oauth2/code/github"
+                        redirect-uri: "https://spring-boot-chat-backend-production.up.railway.app/login/oauth2/code/github"
                     google:
                         client-id: ${GOOGLE_CLIENT_ID}
                         client-secret: ${GOOGLE_CLIENT_SECRET}

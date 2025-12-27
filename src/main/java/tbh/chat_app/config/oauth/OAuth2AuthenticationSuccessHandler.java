@@ -62,7 +62,7 @@ public class OAuth2AuthenticationSuccessHandler implements AuthenticationSuccess
     }
     
     private String buildRedirectUrl(String jwtToken) {
-        return UriComponentsBuilder.fromUriString("http://localhost:8081/oauth2/success")
+        return UriComponentsBuilder.fromUriString("https://chat-with-me-123.lovable.app/oauth2/success")
             .queryParam("token", jwtToken)
             .queryParam("message", "OAuth2 login successful")
             .build().toUriString();
