@@ -16,6 +16,7 @@ import java.io.FileInputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
+import java.util.Base64;
 
 @Configuration
 @EnableReactiveFirestoreRepositories(basePackages = "tbh.chat_app.repository")
@@ -28,34 +29,39 @@ public class FirebaseConfig {
     private String projectId;
 
     private InputStream getCredentialsStream() throws IOException {
-        // 1. Try to get JSON from FIREBASE_CREDENTIALS_JSON environment variable
-        String jsonCredentials = System.getenv("FIREBASE_CREDENTIALS_JSON");
-        System.out.println(jsonCredentials);
-        
-        if (jsonCredentials != null && !jsonCredentials.trim().isEmpty()) {
-            System.out.println("✓ Loading Firebase credentials from FIREBASE_CREDENTIALS_JSON");
-            return new ByteArrayInputStream(jsonCredentials.getBytes(StandardCharsets.UTF_8));
+
+        // 1. Railway / Production: Base64 credentials
+        String base64Credentials = System.getenv("FIREBASE_CREDENTIALS_BASE64");
+
+        if (base64Credentials != null && !base64Credentials.isBlank()) {
+            System.out.println("✓ Loading Firebase credentials from FIREBASE_CREDENTIALS_BASE64");
+            byte[] decoded = Base64.getDecoder().decode(base64Credentials);
+            return new ByteArrayInputStream(decoded);
         }
-        
-        // 2. Fallback to file (local development)
-        System.out.println("ℹ FIREBASE_CREDENTIALS_JSON not found, loading from file: " + credentialsPath);
-        
+
+        // 2. Local fallback
+        System.out.println("ℹ Loading Firebase credentials from: " + credentialsPath);
+
         if (credentialsPath.startsWith("classpath:")) {
-            String resourcePath = credentialsPath.replace("classpath:", "");
-            InputStream stream = getClass().getClassLoader()
-                .getResourceAsStream(resourcePath);
+            String resourcePath = credentialsPath.substring("classpath:".length());
+            InputStream stream = getClass().getClassLoader().getResourceAsStream(resourcePath);
             if (stream == null) {
-                throw new RuntimeException("Firebase credentials not found in classpath: " + resourcePath);
+                throw new IllegalStateException(
+                    "Firebase credentials not found in classpath: " + resourcePath
+                );
             }
             return stream;
-        } else {
-            File file = new File(credentialsPath);
-            if (!file.exists()) {
-                throw new RuntimeException("Firebase credentials file not found: " + credentialsPath);
-            }
-            return new FileInputStream(file);
         }
+
+        File file = new File(credentialsPath);
+        if (!file.exists()) {
+            throw new IllegalStateException(
+                "Firebase credentials file not found: " + credentialsPath
+            );
+        }
+        return new FileInputStream(file);
     }
+
 
     @Bean
     public FirebaseApp firebaseApp() throws IOException {
