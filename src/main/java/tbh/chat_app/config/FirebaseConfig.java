@@ -10,58 +10,82 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 
-import java.io.ByteArrayInputStream;
-import java.io.File;
-import java.io.FileInputStream;
-import java.io.IOException;
-import java.io.InputStream;
+import java.io.*;
 import java.nio.charset.StandardCharsets;
-import java.util.Base64;
 
 @Configuration
 @EnableReactiveFirestoreRepositories(basePackages = "tbh.chat_app.repository")
 public class FirebaseConfig {
 
-    @Value("${firebase.credentials.path}")
+    @Value("${firebase.credentials.path:classpath:chat-app-service-acc-key.json}")
     private String credentialsPath;
 
-    @Value("${firebase.project.id}")
+    @Value("${firebase.project.id:chat-app-817da}")
     private String projectId;
 
     private InputStream getCredentialsStream() throws IOException {
-
-        // 1. Railway / Production: Base64 credentials
-        String base64Credentials = System.getenv("FIREBASE_CREDENTIALS_JSON");
-
-        if (base64Credentials != null && !base64Credentials.isBlank()) {
-            System.out.println("✓ Loading Firebase credentials from FIREBASE_CREDENTIALS_JSON");
-            byte[] decoded = Base64.getDecoder().decode(base64Credentials);
-            return new ByteArrayInputStream(decoded);
-        }
-
-        // 2. Local fallback
-        System.out.println("ℹ Loading Firebase credentials from: " + credentialsPath);
-
-        if (credentialsPath.startsWith("classpath:")) {
-            String resourcePath = credentialsPath.substring("classpath:".length());
-            InputStream stream = getClass().getClassLoader().getResourceAsStream(resourcePath);
-            if (stream == null) {
-                throw new IllegalStateException(
-                    "Firebase credentials not found in classpath: " + resourcePath
-                );
+        System.out.println("=== Loading Firebase Credentials ===");
+        
+        // Priority 1: Check if file exists at FIREBASE_CREDENTIALS_FILE path
+        String filePath = System.getenv("FIREBASE_CREDENTIALS_FILE");
+        if (filePath != null && !filePath.trim().isEmpty()) {
+            System.out.println("✓ Looking for credentials file at: " + filePath);
+            File file = new File(filePath);
+            if (file.exists() && file.length() > 0) {
+                System.out.println("✓ Found credentials file: " + filePath + " (" + file.length() + " bytes)");
+                return new FileInputStream(file);
+            } else {
+                System.out.println("✗ File not found or empty: " + filePath);
             }
-            return stream;
         }
-
+        
+        // Priority 2: Check FIREBASE_CREDENTIALS_JSON environment variable
+        String jsonEnv = System.getenv("FIREBASE_CREDENTIALS_JSON");
+        if (jsonEnv != null && !jsonEnv.trim().isEmpty()) {
+            System.out.println("✓ Using FIREBASE_CREDENTIALS_JSON environment variable");
+            System.out.println("  JSON length: " + jsonEnv.length() + " chars");
+            
+            // Check if this looks like a file path instead of JSON
+            if (jsonEnv.startsWith("{") && jsonEnv.contains("\"type\":\"service_account\"")) {
+                // It's JSON - unescape \n in private_key
+                String processedJson = jsonEnv.replace("\\n", "\n");
+                return new ByteArrayInputStream(processedJson.getBytes(StandardCharsets.UTF_8));
+            } else if (new File(jsonEnv).exists()) {
+                // It's a file path
+                System.out.println("  Treating as file path: " + jsonEnv);
+                return new FileInputStream(jsonEnv);
+            }
+        }
+        
+        // Priority 3: Classpath (local development only)
+        System.out.println("ℹ Falling back to classpath: " + credentialsPath);
+        
+        if (credentialsPath.startsWith("classpath:")) {
+            String resourcePath = credentialsPath.replace("classpath:", "");
+            InputStream stream = getClass().getClassLoader()
+                .getResourceAsStream(resourcePath);
+            
+            if (stream != null) {
+                System.out.println("✓ Found in classpath: " + resourcePath);
+                return stream;
+            }
+        }
+        
+        // Final fallback: try direct file
         File file = new File(credentialsPath);
-        if (!file.exists()) {
-            throw new IllegalStateException(
-                "Firebase credentials file not found: " + credentialsPath
-            );
+        if (file.exists()) {
+            System.out.println("✓ Found file: " + credentialsPath);
+            return new FileInputStream(file);
         }
-        return new FileInputStream(file);
+        
+        throw new RuntimeException(
+            "Firebase credentials not found.\n" +
+            "Options:\n" +
+            "1. Set FIREBASE_CREDENTIALS_JSON environment variable with JSON content\n" +
+            "2. Set FIREBASE_CREDENTIALS_FILE environment variable with file path\n" +
+            "3. Place chat-app-service-acc-key.json in src/main/resources/ for local dev"
+        );
     }
-
 
     @Bean
     public FirebaseApp firebaseApp() throws IOException {
@@ -74,7 +98,7 @@ public class FirebaseConfig {
             .build();
 
         if (FirebaseApp.getApps().isEmpty()) {
-            System.out.println("✓ Firebase initialized successfully with project: " + projectId);
+            System.out.println("✓ Firebase initialized successfully for project: " + projectId);
             return FirebaseApp.initializeApp(options);
         }
         return FirebaseApp.getInstance();
@@ -82,7 +106,7 @@ public class FirebaseConfig {
 
     @Bean
     public Firestore firestore() throws IOException {
-        // Create a new stream (Firestore needs its own)
+        // Note: getCredentialsStream() caches the bytes, so we can call it again
         InputStream serviceAccountStream = getCredentialsStream();
         FirestoreOptions options = FirestoreOptions.newBuilder()
             .setCredentials(GoogleCredentials.fromStream(serviceAccountStream))
