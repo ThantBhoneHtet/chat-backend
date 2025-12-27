@@ -54,6 +54,7 @@ public class SecurityConfig {
             .authorizeHttpRequests(request -> 
                 request.requestMatchers("/api/auth/**").permitAll()
                         .requestMatchers("/ws/**", "/chat/**").permitAll()
+                        .requestMatchers("/health").permitAll()
                         .anyRequest().authenticated()
             )
             // .formLogin(form -> form.defaultSuccessUrl("/hello", true));
