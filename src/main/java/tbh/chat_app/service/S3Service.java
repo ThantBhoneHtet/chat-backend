@@ -33,12 +33,8 @@ public class S3Service {
         metadata.setContentType(file.getContentType());
 
         try {
-            // REMOVE OR COMMENT OUT .withCannedAcl(CannedAccessControlList.PublicRead)
             amazonS3.putObject(new PutObjectRequest(bucketName, fileName, file.getInputStream(), metadata));
-            // .withCannedAcl(CannedAccessControlList.PublicRead)); // THIS LINE IS THE
-            // PROBLEM
 
-            // Construct the public URL (assuming your bucket policy allows public reads)
             String fileUrl = amazonS3.getUrl(bucketName, fileName).toString();
             logger.info("Uploaded file to S3: {}", fileUrl);
             return fileUrl;
@@ -48,8 +44,18 @@ public class S3Service {
         }
     }
 
+    public void deleteFile(String fileUrl) {
+        String fileName = fileUrl.substring(fileUrl.lastIndexOf("/") + 1); // https://bucket-name.s3.region.amazonaws.com/<UUID_filename>.jpg
+        try {
+            amazonS3.deleteObject(bucketName, fileName);
+            logger.info("Deleted file from S3: {}", fileUrl);
+        } catch (Exception e) {
+            logger.error("Error deleting file from S3: {}", e.getMessage(), e); // Log full stack trace
+            throw new RuntimeException("Failed to delete file from S3", e);
+        }
+    }
+
     private String generateFileName(MultipartFile multipartFile) {
-        return UUID.randomUUID().toString() + "_" + multipartFile.getOriginalFilename().replace(" ", "_"); // Add
-                                                                                                           // replace                                                                                              // for spaces
+        return UUID.randomUUID().toString() + "_" + multipartFile.getOriginalFilename().replace(" ", "_");                                                                                                                                                                                              // for spaces
     }
 }

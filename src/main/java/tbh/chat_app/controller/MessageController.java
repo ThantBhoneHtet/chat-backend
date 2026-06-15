@@ -17,13 +17,13 @@ import com.google.cloud.Timestamp;
 
 import tbh.chat_app.dto.message.MessageEditDto;
 import tbh.chat_app.dto.message.MessageRequest;
+import tbh.chat_app.dto.message.VoiceMessageDto;
 import tbh.chat_app.model.Chat;
 import tbh.chat_app.model.Message;
 import tbh.chat_app.service.ChatService;
 import tbh.chat_app.service.MessageService;
 import tbh.chat_app.service.S3Service;
 import tbh.chat_app.service.UserService;
-import reactor.core.publisher.Flux;
 
 
 @RestController
@@ -156,6 +156,9 @@ public class MessageController {
         }
 
         messageService.deleteMessage(messageId);
+        if (messageToBeDeleted.getAttachment() != null) {
+            s3Service.deleteFile(messageToBeDeleted.getAttachment());
+        }
 
         String chatId = messageToBeDeleted.getChatId();
         Message latestMessage = updateLatestMessageForChat(chatId);
@@ -190,6 +193,29 @@ public class MessageController {
             return s3Service.uploadFile(attachment);
         } catch (Exception e) {
             throw new RuntimeException("Failed to upload attachment", e);
+        }
+    }
+
+    @PostMapping("/chat/{chatId}/upload-voice-message")
+    public ResponseEntity<?> uploadVoiceMessage(@PathVariable String chatId, @ModelAttribute VoiceMessageDto voiceMessageDto) {
+        try{
+            String voice_url =s3Service.uploadFile(voiceMessageDto.voiceMessage());
+
+            Message audioMessage = new Message();
+            audioMessage.setChatId(chatId);
+            audioMessage.setSenderId(voiceMessageDto.senderId());
+            audioMessage.setAttachment(voice_url);
+            // audioMessage.setAttachmentName(voiceMessageDto.voiceMessage().getOriginalFilename());
+            if (voiceMessageDto.replyToMessageId() != null) {
+                audioMessage.setReplyToMessageId(voiceMessageDto.replyToMessageId());
+            }
+            audioMessage.setSentAt(Timestamp.now());
+            audioMessage.setReadBy(List.of());  
+
+            messagingTemplate.convertAndSend("/topic/chat/" + chatId, audioMessage);
+            return ResponseEntity.ok(audioMessage);
+        } catch (Exception e) {
+            throw new RuntimeException("Failed to upload voice message", e);
         }
     }
 
