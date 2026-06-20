@@ -212,8 +212,10 @@ public class MessageController {
             audioMessage.setSentAt(Timestamp.now());
             audioMessage.setReadBy(List.of());  
 
-            messagingTemplate.convertAndSend("/topic/chat/" + chatId, audioMessage);
-            return ResponseEntity.ok(audioMessage);
+            Message savedMessage = messageService.saveMessage(audioMessage);
+
+            messagingTemplate.convertAndSend("/topic/chat/" + chatId, savedMessage);
+            return ResponseEntity.ok(savedMessage);
         } catch (Exception e) {
             throw new RuntimeException("Failed to upload voice message", e);
         }
