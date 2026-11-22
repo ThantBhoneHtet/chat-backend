@@ -9,11 +9,17 @@ import org.junit.jupiter.api.Test;
 import org.springframework.http.HttpStatus;
 import org.springframework.mock.web.MockHttpServletRequest;
 import org.springframework.mock.web.MockHttpServletResponse;
+import org.springframework.test.web.servlet.MockMvc;
+import org.springframework.test.web.servlet.setup.MockMvcBuilders;
 
 import tbh.chat_app.config.oauth.MobileOAuthSession;
 import tbh.chat_app.dto.user.JwtResponse;
 import tbh.chat_app.dto.user.MobileOAuthCodeExchangeRequest;
 import tbh.chat_app.service.MobileOAuthCodeService;
+
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.redirectedUrl;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 class MobileOAuthControllerTest {
 
@@ -21,6 +27,17 @@ class MobileOAuthControllerTest {
 
     private final MobileOAuthCodeService codeService = mock(MobileOAuthCodeService.class);
     private final MobileOAuthController controller = new MobileOAuthController(codeService);
+
+    @Test
+    void startAcceptsStandardPkceCodeChallengeQueryParameter() throws Exception {
+        MockMvc mockMvc = MockMvcBuilders.standaloneSetup(controller).build();
+
+        mockMvc.perform(get("/api/auth/mobile/oauth2/start/google")
+                        .param("code_challenge", PKCE_VALUE)
+                        .param("state", PKCE_VALUE))
+                .andExpect(status().is3xxRedirection())
+                .andExpect(redirectedUrl("/oauth2/authorization/google"));
+    }
 
     @Test
     void startStoresPkceValuesAndRedirectsToSpringOAuth() throws Exception {

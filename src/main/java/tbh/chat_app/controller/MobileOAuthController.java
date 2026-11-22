@@ -40,7 +40,7 @@ public class MobileOAuthController {
     @GetMapping("/start/{provider}")
     public void start(
             @PathVariable String provider,
-            @RequestParam String codeChallenge,
+            @RequestParam("code_challenge") String codeChallenge,
             @RequestParam String state,
             HttpServletRequest request,
             HttpServletResponse response) throws IOException {
