@@ -123,13 +123,7 @@ public class AuthController {
 
         Object principal = authentication.getPrincipal();
 
-        // If OAuth2 authenticated principal
-        if (principal instanceof OAuth2User) {
-            OAuth2User oauthUser = (OAuth2User) principal;
-            return ResponseEntity.ok(oauthUser.getAttributes());
-        }
-
-        // If standard UserDetails principal
+        // Check UserDetails first because the application's OAuth2 principal implements both interfaces.
         if (principal instanceof UserDetails) {
             UserDetails userDetails = (UserDetails) principal;
             User user = userService.findUserByEmail(userDetails.getUsername());
@@ -144,6 +138,12 @@ public class AuthController {
             body.put("lastName", user.getLastName());
             body.put("avatarUrl", user.getAvatarUrl());
             return ResponseEntity.ok(body);
+        }
+
+        // If OAuth2 authenticated principal without UserDetails
+        if (principal instanceof OAuth2User) {
+            OAuth2User oauthUser = (OAuth2User) principal;
+            return ResponseEntity.ok(oauthUser.getAttributes());
         }
 
         // Fallback: return principal.toString()
