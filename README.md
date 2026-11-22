@@ -17,11 +17,12 @@ app writes on startup. Never put these values in the Dockerfile or image.
 
 Register these provider callbacks with the OAuth consoles:
 
-- GitHub: `https://<render-service>.onrender.com/login/oauth2/code/github`
-- Google: `https://<render-service>.onrender.com/login/oauth2/code/google`
+- GitHub: `https://chat-with-me-ulrd.onrender.com/login/oauth2/code/github`
+- Google: `https://chat-with-me-ulrd.onrender.com/login/oauth2/code/google`
 
-Set `GITHUB_REDIRECT_URI` to the GitHub callback above. The Docker build context
-excludes `ENV_info.txt` and the local Firebase service-account JSON.
+Set `GITHUB_REDIRECT_URI` to
+`https://chat-with-me-ulrd.onrender.com/login/oauth2/code/github`. The Docker
+build context excludes `ENV_info.txt` and the local Firebase service-account JSON.
 
 ## Local Configurations and Steps for Running This App
 
