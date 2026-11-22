@@ -1,5 +1,28 @@
 # Spring Boot Chat Backend
 
+## Deploy to Render with Docker
+
+Create a Render **Web Service** using Docker and set the service root directory
+to `chat-app` so Render uses the `Dockerfile` in this directory. The image builds
+with Java 17 and listens on Render's injected `PORT` (defaulting to 8080).
+Configure `/health` as the health-check path.
+
+Set the application's existing environment variables in Render's environment
+settings, including `SPRING_PROFILES_ACTIVE`, OAuth client IDs/secrets,
+`GITHUB_REDIRECT_URI`, `JWT_SECRET`, Firebase project/credentials, Spring
+security username/password, and AWS S3 bucket/region/credentials. When providing
+`FIREBASE_CREDENTIALS_JSON`, set
+`FIREBASE_CREDENTIALS_PATH=/app/config/firebase-key.json` to match the path the
+app writes on startup. Never put these values in the Dockerfile or image.
+
+Register these provider callbacks with the OAuth consoles:
+
+- GitHub: `https://<render-service>.onrender.com/login/oauth2/code/github`
+- Google: `https://<render-service>.onrender.com/login/oauth2/code/google`
+
+Set `GITHUB_REDIRECT_URI` to the GitHub callback above. The Docker build context
+excludes `ENV_info.txt` and the local Firebase service-account JSON.
+
 ## Local Configurations and Steps for Running This App
 
 This project is a Spring Boot backend for a chat application. The instructions below cover how to build and run the application on Windows (PowerShell), configure required credentials, and common troubleshooting steps.

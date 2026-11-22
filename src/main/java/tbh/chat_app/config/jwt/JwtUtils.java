@@ -30,7 +30,6 @@ public class JwtUtils {
 
     public String getJwtFromHeader(HttpServletRequest request) {
         String bearerToken = request.getHeader("Authorization");
-        logger.debug("Authorization Header: {}", bearerToken);
         if (bearerToken != null && bearerToken.startsWith("Bearer ")) {
             return bearerToken.substring(7); // Remove Bearer prefix
         }
@@ -51,7 +50,6 @@ public class JwtUtils {
                 .expiration(new Date((new Date()).getTime() + jwtExpirationMs))
                 .signWith(key())
                 .compact();
-                System.out.println("JWT token from JwtUtils.java : "+jwt);
         return jwt;
     } 
 

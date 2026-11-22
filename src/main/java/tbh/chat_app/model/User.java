@@ -3,6 +3,7 @@ package tbh.chat_app.model;
 
 import java.util.List;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.google.cloud.Timestamp;
 import com.google.cloud.firestore.annotation.DocumentId;
 import com.google.cloud.spring.data.firestore.Document;
@@ -19,6 +20,7 @@ public class User {
     @DocumentId
     private String userId;
     private String email;
+    @JsonIgnore
     private String password;
     private String firstName;
     private String lastName;

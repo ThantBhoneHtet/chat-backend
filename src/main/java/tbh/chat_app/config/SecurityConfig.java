@@ -18,12 +18,15 @@ import org.springframework.security.web.authentication.AuthenticationSuccessHand
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
 import org.springframework.web.util.UriComponentsBuilder;
 
+import jakarta.servlet.http.HttpSession;
 import tbh.chat_app.config.jwt.AuthEntryPointJwt;
 import tbh.chat_app.config.jwt.AuthTokenFilter;
 import tbh.chat_app.config.jwt.JwtUtils;
 import tbh.chat_app.config.oauth.CustomOidcUserService;
 import tbh.chat_app.config.oauth.OAuth2AuthenticationSuccessHandler;
+import tbh.chat_app.config.oauth.MobileOAuthSession;
 import tbh.chat_app.config.oauth.OAuth2UserService;
+import tbh.chat_app.service.MobileOAuthCodeService;
 
 @Configuration
 @EnableWebSecurity
@@ -41,6 +44,9 @@ public class SecurityConfig {
 
     @Autowired 
     private JwtUtils jwtUtils;
+
+    @Autowired
+    private MobileOAuthCodeService mobileOAuthCodeService;
 
     @Bean
     public AuthTokenFilter jwtFilter() {
@@ -101,13 +107,22 @@ public class SecurityConfig {
 
     // OAuth2 handler methods
     private AuthenticationSuccessHandler oauth2AuthenticationSuccessHandler() {
-        return new OAuth2AuthenticationSuccessHandler(jwtUtils);
+        return new OAuth2AuthenticationSuccessHandler(jwtUtils, mobileOAuthCodeService);
     }
 
     private AuthenticationFailureHandler oauth2AuthenticationFailureHandler() {
         return (request, response, exception) -> {
-            System.err.println("OAuth2 FAILURE: " + exception.getMessage());
-            response.sendRedirect("/api/auth/oauth2/failure");
+            HttpSession session = request.getSession(false);
+            Object state = session == null
+                    ? null
+                    : session.getAttribute(MobileOAuthSession.STATE_ATTRIBUTE);
+            if (session != null && state instanceof String oauthState) {
+                session.removeAttribute(MobileOAuthSession.CODE_CHALLENGE_ATTRIBUTE);
+                session.removeAttribute(MobileOAuthSession.STATE_ATTRIBUTE);
+                response.sendRedirect(MobileOAuthSession.failureRedirect(oauthState));
+            } else {
+                response.sendRedirect("/api/auth/oauth2/failure");
+            }
         };
     }
 }

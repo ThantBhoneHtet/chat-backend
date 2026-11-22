@@ -37,15 +37,12 @@ public class AuthTokenFilter extends OncePerRequestFilter {
 
         try {
             String jwt = parseJwt(request);
-            System.out.println("Jwt token from AuthTokenFilter.java : " + jwt);
             if (jwt != null) {
                 try {
                     if (jwtUtils.validateJwtToken(jwt)) {
                         String username = jwtUtils.getUserNameFromJwtToken(jwt);
-                        System.out.println("Username: " + username);
 
                         UserDetails userDetails = customUserDetailsService.loadUserByUsername(username);
-                        System.out.println("UserDetails name:" + userDetails.getUsername());
 
                         UsernamePasswordAuthenticationToken authentication =
                                 new UsernamePasswordAuthenticationToken(userDetails,
@@ -55,10 +52,8 @@ public class AuthTokenFilter extends OncePerRequestFilter {
                         logger.debug("Roles from JWT: {}", userDetails.getAuthorities());
 
                         authentication.setDetails(new WebAuthenticationDetailsSource().buildDetails(request));
-                        System.out.println("Authentication : " + authentication.getDetails().toString());
 
                         SecurityContextHolder.getContext().setAuthentication(authentication);
-                        System.out.println("SecurityContext authentication: " + SecurityContextHolder.getContext().getAuthentication());
                     }
                 } catch (io.jsonwebtoken.ExpiredJwtException ex) {
                     logger.warn("JWT token expired: {}", ex.getMessage());
@@ -77,7 +72,6 @@ public class AuthTokenFilter extends OncePerRequestFilter {
 
     private String parseJwt(HttpServletRequest request) {
         String jwt = jwtUtils.getJwtFromHeader(request);
-        logger.debug("AuthTokenFilter.java: {}", jwt);
         return jwt;
     }
 }

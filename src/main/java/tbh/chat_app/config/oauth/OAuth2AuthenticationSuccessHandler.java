@@ -15,24 +15,28 @@ import org.springframework.web.util.UriComponentsBuilder;
 
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
+import jakarta.servlet.http.HttpSession;
 import tbh.chat_app.config.jwt.JwtUtils;
 import tbh.chat_app.config.jwt.UserPrincipal;
+import tbh.chat_app.service.MobileOAuthCodeService;
 
 @Component
 public class OAuth2AuthenticationSuccessHandler implements AuthenticationSuccessHandler {
 
     private final JwtUtils jwtUtils;
+    private final MobileOAuthCodeService mobileOAuthCodeService;
 
-     public OAuth2AuthenticationSuccessHandler(JwtUtils jwtUtils) {
+    public OAuth2AuthenticationSuccessHandler(
+            JwtUtils jwtUtils,
+            MobileOAuthCodeService mobileOAuthCodeService) {
         this.jwtUtils = jwtUtils;
+        this.mobileOAuthCodeService = mobileOAuthCodeService;
     }
 
     @Override
     public void onAuthenticationSuccess(HttpServletRequest request, HttpServletResponse response,
                                       Authentication authentication) throws IOException {
 
-        System.out.println("=== OAuth2 SUCCESS HANDLER STARTED ===");
-        
         if (authentication instanceof OAuth2AuthenticationToken) {
             OAuth2AuthenticationToken oauthToken = (OAuth2AuthenticationToken) authentication;
             Object principal = oauthToken.getPrincipal();
@@ -47,16 +51,19 @@ public class OAuth2AuthenticationSuccessHandler implements AuthenticationSuccess
                 String email = oauth2User.getAttribute("email");
                 if (email != null) {
                     jwtToken = jwtUtils.generateTokenFromOAuth2User(oauth2User);
-                     System.out.println("Generated JWT token: " + jwtToken);
                 }
             }
             
             if (jwtToken != null) {
-                // Redirect to frontend with token or return JSON response
-                String redirectUrl = buildRedirectUrl(jwtToken);
+                String redirectUrl = buildMobileRedirectUrl(request, jwtToken);
+                if (redirectUrl == null) {
+                    redirectUrl = buildRedirectUrl(jwtToken);
+                }
                 response.sendRedirect(redirectUrl);
             } else {
-                response.sendRedirect("/api/auth/oauth2/failure");
+                String redirectUrl = buildMobileFailureRedirect(request);
+                response.sendRedirect(
+                        redirectUrl == null ? "/api/auth/oauth2/failure" : redirectUrl);
             }
         }
     }
@@ -66,5 +73,39 @@ public class OAuth2AuthenticationSuccessHandler implements AuthenticationSuccess
             .queryParam("token", jwtToken)
             .queryParam("message", "OAuth2 login successful")
             .build().toUriString();
+    }
+
+    private String buildMobileRedirectUrl(HttpServletRequest request, String jwtToken) {
+        HttpSession session = request.getSession(false);
+        if (session == null) {
+            return null;
+        }
+
+        Object challenge = session.getAttribute(MobileOAuthSession.CODE_CHALLENGE_ATTRIBUTE);
+        Object state = session.getAttribute(MobileOAuthSession.STATE_ATTRIBUTE);
+        if (!(challenge instanceof String codeChallenge) || !(state instanceof String oauthState)) {
+            return null;
+        }
+
+        session.removeAttribute(MobileOAuthSession.CODE_CHALLENGE_ATTRIBUTE);
+        session.removeAttribute(MobileOAuthSession.STATE_ATTRIBUTE);
+        String code = mobileOAuthCodeService.issue(jwtToken, codeChallenge);
+        return MobileOAuthSession.successRedirect(code, oauthState);
+    }
+
+    private String buildMobileFailureRedirect(HttpServletRequest request) {
+        HttpSession session = request.getSession(false);
+        if (session == null) {
+            return null;
+        }
+
+        Object state = session.getAttribute(MobileOAuthSession.STATE_ATTRIBUTE);
+        if (!(state instanceof String oauthState)) {
+            return null;
+        }
+
+        session.removeAttribute(MobileOAuthSession.CODE_CHALLENGE_ATTRIBUTE);
+        session.removeAttribute(MobileOAuthSession.STATE_ATTRIBUTE);
+        return MobileOAuthSession.failureRedirect(oauthState);
     }
 }

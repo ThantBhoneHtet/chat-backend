@@ -1,0 +1,14 @@
+.git
+.idea
+.vscode
+target
+**/target
+*.iml
+.env
+.env.*
+**/.env
+**/.env.*
+ENV_info.txt
+**/ENV_info.txt
+src/main/resources/chat-app-service-acc-key.json
+**/chat-app-service-acc-key.json

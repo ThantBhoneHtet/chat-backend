@@ -34,7 +34,7 @@ This repository exposes REST and WebSocket APIs for a chat application. Below is
 
 - GET /api/auth/user/me
 	- Description: Returns current user info
-	- If JWT-authenticated (UserDetails): returns {username, authorities, enabled, ...}
+	- If JWT-authenticated (UserDetails): returns {userId, email, firstName, lastName, avatarUrl}; never returns the password hash
 	- If OAuth2-authenticated: returns provider attributes map
 
 ---
@@ -58,6 +58,8 @@ This repository exposes REST and WebSocket APIs for a chat application. Below is
 
 - DELETE /api/users/{id}
 	- Response: 200 -> Mono<Void> (empty)
+
+User responses omit the password hash.
 
 - GET /api/users/{userId}/stats
 	- Example response: { "completedTasks": 10, "ongoingTasks": 2, "skills": ["Java","Spring Boot"] }
@@ -150,6 +152,21 @@ WebSocket (STOMP):
 - Callback: GET /login/oauth2/code/{provider}
 	- Provider redirects back with `code`; Spring handles the token exchange.
 	- Note: GitHub profile response often does not include `email` or `name`. This project includes an OAuth2 abstraction and Github-specific logic — if `email` is null, the service should call `https://api.github.com/user/emails` with the access token to obtain the primary/verified email. See implementation notes in code.
+
+## Mobile OAuth (Android)
+
+- GET /api/auth/mobile/oauth2/start/{provider}?code_challenge={challenge}&state={state}
+	- Supported providers: `google`, `github`.
+	- Starts the existing Spring-managed OAuth flow in the system browser. The challenge and state must be base64url values generated for this login attempt.
+- Callback: `chatwithme://oauth/callback?code={one-time-code}&state={state}`
+	- The app must verify the returned state before exchanging the code.
+	- The code expires after two minutes, is single-use, and is bound to the PKCE verifier.
+- POST /api/auth/mobile/oauth2/exchange
+	- Request: `{ "code": "<one-time-code>", "codeVerifier": "<PKCE verifier>" }`
+	- Response: `JwtResponse { "token": "<jwt>", "message": "OAuth login successful." }`
+	- Response: 401 when the code is invalid, expired, already used, or the verifier does not match.
+- Exchange codes are stored only on the backend in Firestore (`mobile_oauth_codes`). Configure Firestore TTL on the `expiresAt` field before production.
+- The existing web OAuth redirect remains unchanged.
 
 ---
 

@@ -23,6 +23,7 @@ import tbh.chat_app.config.jwt.JwtUtils;
 import tbh.chat_app.dto.user.JwtResponse;
 import tbh.chat_app.dto.user.LoginRequest;
 import tbh.chat_app.dto.user.UserCreationDto;
+import tbh.chat_app.model.User;
 import tbh.chat_app.service.UserService;
 
 @RestController
@@ -125,20 +126,23 @@ public class AuthController {
         // If OAuth2 authenticated principal
         if (principal instanceof OAuth2User) {
             OAuth2User oauthUser = (OAuth2User) principal;
-            System.out.println(oauthUser.getAttributes());
             return ResponseEntity.ok(oauthUser.getAttributes());
         }
 
         // If standard UserDetails principal
         if (principal instanceof UserDetails) {
-            UserDetails user = (UserDetails) principal;
+            UserDetails userDetails = (UserDetails) principal;
+            User user = userService.findUserByEmail(userDetails.getUsername());
+            if (user == null) {
+                return ResponseEntity.notFound().build();
+            }
+
             Map<String, Object> body = new HashMap<>();
-            body.put("username", user.getUsername());
-            body.put("role", user.getAuthorities());
-            body.put("enabled", user.isEnabled());
-            body.put("accountNonExpired", user.isAccountNonExpired());
-            body.put("accountNonLocked", user.isAccountNonLocked());
-            body.put("credentialsNonExpired", user.isCredentialsNonExpired());
+            body.put("userId", user.getUserId());
+            body.put("email", user.getEmail());
+            body.put("firstName", user.getFirstName());
+            body.put("lastName", user.getLastName());
+            body.put("avatarUrl", user.getAvatarUrl());
             return ResponseEntity.ok(body);
         }
 
