@@ -3,7 +3,16 @@ FROM maven:3.9-eclipse-temurin-17 AS build
 WORKDIR /workspace
 COPY pom.xml .
 COPY src ./src
-RUN mvn -B -DskipTests package
+RUN for attempt in 1 2 3 4 5; do \
+      mvn -B -U -Dmaven.wagon.http.retryHandler.count=5 -DskipTests package > /tmp/maven-build.log 2>&1; status=$?; \
+      cat /tmp/maven-build.log; \
+      if [ "$status" -eq 0 ]; then exit 0; fi; \
+      if ! grep -Eqi '429|Too Many Requests' /tmp/maven-build.log || [ "$attempt" -eq 5 ]; then exit "$status"; fi; \
+      delay=$((attempt * 10)); \
+      echo "Maven Central rate limited the build; retrying in ${delay}s (attempt ${attempt}/5)..." >&2; \
+      sleep "$delay"; \
+    done; \
+    exit 1
 
 FROM eclipse-temurin:17-jre
 
