@@ -2,9 +2,10 @@ FROM maven:3.9-eclipse-temurin-17 AS build
 
 WORKDIR /workspace
 COPY pom.xml .
+COPY .mvn/settings.xml .mvn/settings.xml
 COPY src ./src
 RUN for attempt in 1 2 3 4 5; do \
-      mvn -B -U -Dmaven.wagon.http.retryHandler.count=5 -DskipTests package > /tmp/maven-build.log 2>&1; status=$?; \
+      mvn -s .mvn/settings.xml -B -U -Dmaven.wagon.http.retryHandler.count=5 -DskipTests package > /tmp/maven-build.log 2>&1; status=$?; \
       cat /tmp/maven-build.log; \
       if [ "$status" -eq 0 ]; then exit 0; fi; \
       if ! grep -Eqi '429|Too Many Requests' /tmp/maven-build.log || [ "$attempt" -eq 5 ]; then exit "$status"; fi; \
