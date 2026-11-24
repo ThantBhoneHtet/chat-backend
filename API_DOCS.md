@@ -34,7 +34,7 @@ This repository exposes REST and WebSocket APIs for a chat application. Below is
 
 - GET /api/auth/user/me
 	- Description: Returns current user info
-	- If JWT-authenticated (UserDetails): returns {userId, email, firstName, lastName, avatarUrl}; never returns the password hash
+	- If JWT-authenticated (UserDetails): returns {userId, email, firstName, lastName, avatarUrl, bio, phoneNumber, gender, location, privacySettings}; never returns the password hash
 	- If OAuth2-authenticated: returns provider attributes map
 
 ---
@@ -54,6 +54,7 @@ This repository exposes REST and WebSocket APIs for a chat application. Below is
 - PUT /api/users/{id}  (multipart/form-data)
 	- Parts: `dto` (JSON string form of UserUpdateDto), optional `image`
 	- UserUpdateDto fields: password, firstName, lastName, avatarUrl, location {country, city}, bio, privacySettings {profileVisibility, searchVisibility}, availability, phoneNumber, gender
+	- Authorization: the authenticated user may update only their own profile
 	- Response: 200 -> updated User
 
 - DELETE /api/users/{id}
@@ -77,7 +78,22 @@ User responses omit the password hash.
 
 - POST /api/chats
 	- Request: ChatRequest { type: "DIRECT"|"GROUP", name: (group name), participantIds: ["id1","id2"] }
+	- Authorization: the authenticated user must be a participant; group owner is assigned from the authenticated identity
 	- Response: 201 -> Chat object (chatId, participants, lastMessage, lastMessageTime, unreadCounts...)
+
+- PUT /api/chats/{id}
+	- Request: { "name": "Group name", "gpImageUrl": "https://..." }
+	- Authorization: group owner only
+	- Response: 200 -> "Updated."
+
+- PUT /api/chats/{chatId}/update-participants
+	- Request: ["participant-id-1", "participant-id-2"]
+	- Authorization: group owner can add/remove members; other members can only remove themselves to leave
+	- Response: 200 -> "Updated."
+
+- DELETE /api/chats/{chatId}
+	- Authorization: group owner for groups; a participant for direct chats
+	- Response: 200 -> "Chat deleted."
 
 - GET /api/chats/{id}
 	- Response: 200 -> Chat
@@ -91,12 +107,13 @@ User responses omit the password hash.
 
 - GET /api/chats/{chatId}/participants
 	- Response: 200 -> [ ChatParticipantsDto {id, firstName, lastName, avatarUrl, isOnline, lastActive} ]
+	- `isOnline` is computed from active authenticated WebSocket sessions
 
 - POST /api/chats/online-users-count  (optional body of participantIds)
 	- Response: integer
 
 - GET /api/chats/online-users-count
-	- Response: integer (placeholder)
+	- Response: current online-user count
 
 ---
 
@@ -137,10 +154,14 @@ WebSocket (STOMP):
 
 ---
 
-## User Status (WebSocket & HTTP)
+## Presence (STOMP WebSocket)
 
-- POST /users/{userId}/status/{isOnline}
-	- Updates user online status and broadcasts to /topic/user-status { userId, isOnline }
+- Connect to `/chat` and include `Authorization: Bearer <jwt>` in the STOMP `CONNECT` headers.
+- Send an empty-body STOMP `SEND` to `/app/presence/heartbeat` every 20 seconds while signed in. The authenticated identity comes from the JWT; clients do not send a user ID. Sessions expire after 60 seconds without a heartbeat.
+- Subscribe to `/topic/user-status` for `{ "userId": "...", "isOnline": true|false }` transition events.
+- Presence is online while the user has at least one active authenticated session. Clean disconnects update presence immediately; lost connections expire by heartbeat timeout. Heartbeats do not write to Firestore; persistence and broadcasts occur on transitions.
+- The active-session registry is in-memory and assumes one backend instance. Multiple backend replicas require a shared presence registry and cross-instance event delivery.
+- The legacy `POST /users/{userId}/status/{isOnline}` endpoint returns `410 Gone`; presence is managed by authenticated WebSocket sessions.
 
 ---
 

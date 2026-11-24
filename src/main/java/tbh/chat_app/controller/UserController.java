@@ -12,6 +12,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import tbh.chat_app.config.jwt.UserPrincipal;
 import org.springframework.security.oauth2.core.user.OAuth2User;
 import org.springframework.web.bind.annotation.CrossOrigin;
 import org.springframework.web.bind.annotation.DeleteMapping;
@@ -28,6 +29,7 @@ import org.springframework.web.multipart.MultipartFile;
 import tbh.chat_app.dto.user.UserCreationDto;
 import tbh.chat_app.dto.user.UserUpdateDto;
 import tbh.chat_app.model.User;
+import tbh.chat_app.service.PresenceService;
 import tbh.chat_app.service.UserService;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
@@ -38,6 +40,9 @@ public class UserController {
 
     @Autowired
     private UserService userService;
+
+    @Autowired
+    private PresenceService presenceService;
 
     @PostMapping
     public ResponseEntity<?> createUser(@RequestBody UserCreationDto dto) {
@@ -54,7 +59,7 @@ public class UserController {
     @GetMapping("/{id}")
     public ResponseEntity<User> getUserById(@PathVariable String id) {
         try {
-            return ResponseEntity.ok(userService.getUser(id));
+            return ResponseEntity.ok(withLivePresence(userService.getUser(id)));
         } catch (Exception e) {
             return ResponseEntity.status(HttpStatus.NOT_FOUND).body(null);
         }
@@ -65,7 +70,7 @@ public class UserController {
         if (email == null) return ResponseEntity.badRequest().body(null);
         
         try{
-            return ResponseEntity.ok(userService.findUserByEmail(email));
+            return ResponseEntity.ok(withLivePresence(userService.findUserByEmail(email)));
         } catch (Exception e) {
             return ResponseEntity.status(HttpStatus.NOT_FOUND).body(null);
         }
@@ -74,16 +79,29 @@ public class UserController {
     @GetMapping
     public ResponseEntity<List<User>> getAllUsers(@RequestParam(required = false) String nameKeyword) {
         if (nameKeyword != null && !nameKeyword.isBlank()) {
-            return ResponseEntity.ok(userService.searchUsersByKeyword(nameKeyword));
+            return ResponseEntity.ok(userService.searchUsersByKeyword(nameKeyword)
+                    .stream().map(this::withLivePresence).toList());
         }
-        return ResponseEntity.ok(userService.getAllUsers());
+        return ResponseEntity.ok(userService.getAllUsers()
+                .stream().map(this::withLivePresence).toList());
+    }
+
+    private User withLivePresence(User user) {
+        if (user != null) {
+            user.setIsOnline(presenceService.isOnline(user.getUserId()));
+        }
+        return user;
     }
 
     @PutMapping(value = "/{id}", consumes = { "multipart/form-data" })
     public ResponseEntity<User> updateUser(
             @PathVariable String id,
             @RequestPart("dto") UserUpdateDto dto,
-            @RequestPart(value = "image", required = false) MultipartFile image) {
+            @RequestPart(value = "image", required = false) MultipartFile image,
+            @AuthenticationPrincipal UserPrincipal principal) {
+        if (principal == null || !principal.getId().equals(id)) {
+            return ResponseEntity.status(HttpStatus.FORBIDDEN).body(null);
+        }
         try {
             return ResponseEntity.ok(userService.updateUser(id, dto, image).block());
         } catch (IOException | ExecutionException | InterruptedException e) {

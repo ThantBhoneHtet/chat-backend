@@ -1,5 +1,6 @@
 package tbh.chat_app.controller;
 
+import java.io.IOException;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -10,6 +11,7 @@ import org.springframework.messaging.handler.annotation.DestinationVariable;
 import org.springframework.messaging.handler.annotation.MessageMapping;
 import org.springframework.messaging.handler.annotation.Payload;
 import org.springframework.messaging.simp.SimpMessagingTemplate;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 
@@ -18,6 +20,7 @@ import com.google.cloud.Timestamp;
 import tbh.chat_app.dto.message.MessageEditDto;
 import tbh.chat_app.dto.message.MessageRequest;
 import tbh.chat_app.dto.message.VoiceMessageDto;
+import tbh.chat_app.config.jwt.UserPrincipal;
 import tbh.chat_app.model.Chat;
 import tbh.chat_app.model.Message;
 import tbh.chat_app.service.ChatService;
@@ -188,12 +191,17 @@ public class MessageController {
     }
 
     @PostMapping("/chat/{chatId}/upload-attachment")
-    public String uploadAttachment(@PathVariable String chatId, @RequestPart MultipartFile attachment) {
-        try{
-            return s3Service.uploadFile(attachment);
-        } catch (Exception e) {
-            throw new RuntimeException("Failed to upload attachment", e);
+    public ResponseEntity<String> uploadAttachment(
+            @PathVariable String chatId,
+            @RequestPart MultipartFile attachment,
+            @AuthenticationPrincipal UserPrincipal principal) throws IOException {
+        Chat chat = chatService.getChat(chatId).block();
+        if (chat == null) return ResponseEntity.notFound().build();
+        if (principal == null || chat.getParticipants() == null
+                || !chat.getParticipants().contains(principal.getId())) {
+            return ResponseEntity.status(403).build();
         }
+        return ResponseEntity.ok(s3Service.uploadFile(attachment));
     }
 
     @PostMapping("/chat/{chatId}/upload-voice-message")

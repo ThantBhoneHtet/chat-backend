@@ -41,6 +41,9 @@ public class ChatService {
     @Autowired
     private MessageService messageService;
 
+    @Autowired
+    private PresenceService presenceService;
+
     public Mono<Chat> createChat(ChatRequest chatRequest) {
         System.out.println("chat request ===================\n"+chatRequest);
         Chat chat = new Chat();
@@ -115,7 +118,7 @@ public class ChatService {
                     user.getFirstName(),
                     user.getLastName(),
                     user.getAvatarUrl(),
-                    user.getIsOnline(),
+                    presenceService.isOnline(user.getUserId()),
                     user.getLastActive()
                 );
             }
@@ -137,7 +140,7 @@ public class ChatService {
             user.getFirstName(),
             user.getLastName(),
             user.getAvatarUrl(),
-            user.getIsOnline(),
+            presenceService.isOnline(user.getUserId()),
             user.getLastActive()
         );
     }
@@ -159,14 +162,10 @@ public class ChatService {
                 return 0;
             }
 
-            return participantIds.stream()
-                    .mapToInt(id -> {
-                        User user = userService.getUser(id);
-                        if (user != null && Boolean.TRUE.equals(user.getIsOnline())) {
-                            return 1;
-                        };
-                        return 0;
-                    })
-                    .sum();
+            return presenceService.countOnlineUsers(participantIds);
         }
+
+    public int getOnlineUsersCount() {
+        return presenceService.countOnlineUsers();
+    }
     }

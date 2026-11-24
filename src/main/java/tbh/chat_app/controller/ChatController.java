@@ -4,10 +4,14 @@ import java.lang.module.ResolutionException;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
+import java.util.Set;
 
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import org.springframework.util.StringUtils;
 import org.springframework.web.bind.annotation.CrossOrigin;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -21,6 +25,7 @@ import org.springframework.web.bind.annotation.RestController;
 import tbh.chat_app.dto.chat.ChatParticipantsDto;
 import tbh.chat_app.dto.chat.ChatRequest;
 import tbh.chat_app.dto.chat.GpChatEditDto;
+import tbh.chat_app.config.jwt.UserPrincipal;
 import tbh.chat_app.model.Chat;
 import tbh.chat_app.repository.ChatRepository;
 import tbh.chat_app.service.ChatService;
@@ -41,15 +46,58 @@ public class ChatController {
     }
 
     @PostMapping
-    public ResponseEntity<?> createChat(@RequestBody ChatRequest chatRequest) {
-        return new ResponseEntity<>(chatService.createChat(chatRequest).block(), HttpStatus.CREATED);
+    public ResponseEntity<?> createChat(
+            @RequestBody ChatRequest chatRequest,
+            @AuthenticationPrincipal UserPrincipal principal) {
+        if (principal == null || chatRequest == null || chatRequest.participantIds() == null) {
+            return ResponseEntity.badRequest().body("Invalid chat request.");
+        }
+        if (chatRequest.participantIds().stream().anyMatch(id -> id == null || id.isBlank())) {
+            return ResponseEntity.badRequest().body("Invalid participant list.");
+        }
+        List<String> participantIds = chatRequest.participantIds().stream().distinct().toList();
+        if (!participantIds.contains(principal.getId())) {
+            return ResponseEntity.status(HttpStatus.FORBIDDEN).build();
+        }
+        if ("GROUP".equalsIgnoreCase(chatRequest.type())) {
+            if (participantIds.size() < 2 || !StringUtils.hasText(chatRequest.name())) {
+                return ResponseEntity.badRequest().body("A group needs a name and at least two members.");
+            }
+            ChatRequest authorizedRequest = new ChatRequest(
+                    chatRequest.type(),
+                    chatRequest.name().trim(),
+                    principal.getId(),
+                    chatRequest.gpImageUrl(),
+                    participantIds);
+            return new ResponseEntity<>(
+                    chatService.createChat(authorizedRequest).block(),
+                    HttpStatus.CREATED);
+        }
+        ChatRequest authorizedRequest = new ChatRequest(
+                chatRequest.type(),
+                chatRequest.name(),
+                chatRequest.owner(),
+                chatRequest.gpImageUrl(),
+                participantIds);
+        return new ResponseEntity<>(
+                chatService.createChat(authorizedRequest).block(),
+                HttpStatus.CREATED);
     }
 
     @PutMapping("/{id}")
-    public ResponseEntity<?> updateGroupChat(@PathVariable String id, @RequestBody GpChatEditDto gpChatEditDto) {
+    public ResponseEntity<?> updateGroupChat(
+            @PathVariable String id,
+            @RequestBody GpChatEditDto gpChatEditDto,
+            @AuthenticationPrincipal UserPrincipal principal) {
         Chat chat = chatService.getChat(id).block();
         if (chat == null) {
             return ResponseEntity.notFound().build();
+        }
+        if (principal == null || !Objects.equals(chat.getOwner(), principal.getId())) {
+            return ResponseEntity.status(HttpStatus.FORBIDDEN).build();
+        }
+        if (!"GROUP".equalsIgnoreCase(chat.getType())) {
+            return ResponseEntity.badRequest().body("Only groups can be edited.");
         }
 
         if (gpChatEditDto == null) {
@@ -57,7 +105,10 @@ public class ChatController {
         }
         
         if (gpChatEditDto.name() != null) {
-            chat.setGroupName(gpChatEditDto.name());
+            if (!StringUtils.hasText(gpChatEditDto.name())) {
+                return ResponseEntity.badRequest().body("Group name cannot be empty.");
+            }
+            chat.setGroupName(gpChatEditDto.name().trim());
         }
 
         if (gpChatEditDto.gpImageUrl() != null) {
@@ -117,16 +168,16 @@ public class ChatController {
 
     @GetMapping("/online-users-count")
     public Integer getOnlineUsersCount() {
-        // get all online users from db
-        return 30;
+        return chatService.getOnlineUsersCount();
     }
 
     @PutMapping("/{chatId}/update-participants")
     public ResponseEntity<?> updateChatParticipants(
             @PathVariable String chatId, 
-            @RequestBody List<String> participantIds) {
+            @RequestBody List<String> participantIds,
+            @AuthenticationPrincipal UserPrincipal principal) {
 
-        if (chatId == null || participantIds == null) {
+        if (chatId == null || participantIds == null || principal == null) {
             return ResponseEntity.badRequest().body("Invalid input.");
         }
 
@@ -135,8 +186,32 @@ public class ChatController {
         if (chat == null) {
             return ResponseEntity.notFound().build();
         }
+        if (!"GROUP".equalsIgnoreCase(chat.getType()) || chat.getParticipants() == null) {
+            return ResponseEntity.badRequest().body("Only group members can be updated.");
+        }
+        if (!chat.getParticipants().contains(principal.getId())) {
+            return ResponseEntity.status(HttpStatus.FORBIDDEN).build();
+        }
+        if (participantIds.stream().anyMatch(id -> id == null || id.isBlank())) {
+            return ResponseEntity.badRequest().body("Invalid participant list.");
+        }
 
-        chat.setParticipants(participantIds);
+        Set<String> currentParticipants = Set.copyOf(chat.getParticipants());
+        Set<String> requestedParticipants = Set.copyOf(participantIds);
+        boolean isOwner = Objects.equals(chat.getOwner(), principal.getId());
+        if (isOwner) {
+            if (!requestedParticipants.contains(chat.getOwner()) || requestedParticipants.size() < 2) {
+                return ResponseEntity.badRequest().body("A group owner must remain in a group with at least two members.");
+            }
+        } else {
+            Set<String> expectedParticipants = new java.util.HashSet<>(currentParticipants);
+            expectedParticipants.remove(principal.getId());
+            if (!requestedParticipants.equals(expectedParticipants)) {
+                return ResponseEntity.status(HttpStatus.FORBIDDEN).build();
+            }
+        }
+
+        chat.setParticipants(participantIds.stream().distinct().toList());
 
         Map<String, Integer> unread = chat.getUnreadCounts();
         if (unread == null) unread = new HashMap<>();
@@ -155,9 +230,21 @@ public class ChatController {
     }
 
     @DeleteMapping("/{chatId}")
-    public ResponseEntity<?> deleteChat(@PathVariable String chatId) {
-        if(chatId == null) return ResponseEntity.badRequest().body("ChatId is empty");
-        if(chatService.getChat(chatId) == null) return ResponseEntity.badRequest().body("Chat not exists.");
+    public ResponseEntity<?> deleteChat(
+            @PathVariable String chatId,
+            @AuthenticationPrincipal UserPrincipal principal) {
+        if (chatId == null || principal == null) {
+            return ResponseEntity.badRequest().body("ChatId is empty");
+        }
+        Chat chat = chatService.getChat(chatId).block();
+        if (chat == null) return ResponseEntity.notFound().build();
+        if (chat.getParticipants() == null || !chat.getParticipants().contains(principal.getId())) {
+            return ResponseEntity.status(HttpStatus.FORBIDDEN).build();
+        }
+        if ("GROUP".equalsIgnoreCase(chat.getType())
+                && !Objects.equals(chat.getOwner(), principal.getId())) {
+            return ResponseEntity.status(HttpStatus.FORBIDDEN).build();
+        }
         chatService.deleteChat(chatId);
         return ResponseEntity.ok().body("Chat deleted.");
     }

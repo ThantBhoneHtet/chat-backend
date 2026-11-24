@@ -137,6 +137,11 @@ public class AuthController {
             body.put("firstName", user.getFirstName());
             body.put("lastName", user.getLastName());
             body.put("avatarUrl", user.getAvatarUrl());
+            body.put("bio", user.getBio());
+            body.put("phoneNumber", user.getPhoneNumber());
+            body.put("gender", user.getGender());
+            body.put("location", user.getLocation());
+            body.put("privacySettings", user.getPrivacySettings());
             return ResponseEntity.ok(body);
         }
 
