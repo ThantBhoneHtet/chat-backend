@@ -132,12 +132,12 @@ public class ChatController {
     // }
 
     @PostMapping("/isExisted")
-    public String getChatIdBetweenParticipants(@RequestBody List<String> participantIds) {
-        System.out.println("getChatIdbetweenParticipants called ================");
-        System.out.println("Participants ids: "+participantIds);
+    public ResponseEntity<String> getChatIdBetweenParticipants(@RequestBody List<String> participantIds) {
         Chat chat = chatService.getChatIdBetweenParticipants(participantIds);
-        System.out.println("Fetched chat : "+ chat);
-        return (chat != null) ? chat.getChatId() : null;
+        if (chat == null) {
+            return ResponseEntity.notFound().build();
+        }
+        return ResponseEntity.ok(chat.getChatId());
     }
 
 

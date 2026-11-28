@@ -92,4 +92,27 @@ class ChatControllerTest {
         assertEquals(HttpStatus.FORBIDDEN, response.getStatusCode());
         verify(chatService, never()).updateChat(group);
     }
+
+    @Test
+    void returnsNotFoundWhenDirectConversationDoesNotExist() {
+        when(chatService.getChatIdBetweenParticipants(List.of("owner-1", "new-user")))
+                .thenReturn(null);
+
+        var response = controller.getChatIdBetweenParticipants(List.of("owner-1", "new-user"));
+
+        assertEquals(HttpStatus.NOT_FOUND, response.getStatusCode());
+    }
+
+    @Test
+    void returnsExistingDirectConversationId() {
+        var directChat = new Chat();
+        directChat.setChatId("direct-1");
+        when(chatService.getChatIdBetweenParticipants(List.of("owner-1", "member-1")))
+                .thenReturn(directChat);
+
+        var response = controller.getChatIdBetweenParticipants(List.of("owner-1", "member-1"));
+
+        assertEquals(HttpStatus.OK, response.getStatusCode());
+        assertEquals("direct-1", response.getBody());
+    }
 }
